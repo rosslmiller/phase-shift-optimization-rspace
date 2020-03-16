@@ -34,7 +34,7 @@ ls1  3pj  -0.865    0.        138.039   0.
 fun          3.     16.       1.        0.70
 s121 3pj   0.00     0.        138.039   0.
 fun          3.     14.       1.        0.70
-'''
+```
 
 where the number 0.126 after c01 1s0 would be the first 1s0 coefficient.
 
@@ -66,5 +66,4 @@ The phase shifts and low energy parameters are calculated and stored in the outp
                                                   total chi**2       100.47
                                                   chi**2/datum        10.05
                                                   for   10 p. of data
-
-'''
+```
