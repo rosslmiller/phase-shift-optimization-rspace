@@ -17,6 +17,12 @@ class InputWriter(InputReader):
 
     @property
     def target_coefficients(self):
+        if self._target_states is None:
+            raise TargetStatesNotSet(
+                "please specify which partial wave coefficients are being "
+                "optimized by assigning a list of strings to the `target_states`"
+                'attribute (e.g., `x.target_states = ["1S0", "1P1"]`)'
+            )
         coefficients = []
         for state in self.target_states:
             coefficients.extend(self.coefficients_for(state))
@@ -75,3 +81,9 @@ def truncate_coefficient_to_max_width(coeff: str):
 
 class InputWriterException(Exception):
     """Base exception for this module."""
+
+
+class TargetStatesNotSet(InputWriterException):
+    """The InputWriter.target_states attribute has not yet been set;
+    the instance does not know which nuclear state's coefficients are
+    being optimized."""
