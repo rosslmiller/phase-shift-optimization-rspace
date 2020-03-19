@@ -1,57 +1,76 @@
-import random
-import time
-
-from typing import List, Tuple, Dict
+from typing import List
 
 # Local imports
-from output_reader import StateResults
+from input_reader import InputReader
 
 
-class NuclearState:
-    orbitals = "SPDFGHIJKLMNOPQRSTUVWXYZ"
+class InputWriter(InputReader):
+    @property
+    def target_states(self):
+        return tuple(self._target_states)
 
+    @target_states.setter
+    def target_states(self, states: List[str]):
+        # TODO(ben): validate the list of states
+        self._target_states = tuple(states)
+        self.compute_coefficient_slices()
 
-class InputWriter:
-
-    _set_of_nuclear_states = "1S0 1P1 3S1 3PJ".split()
-    # TODO(ben): should we determine these states by reading the input file
-    # instead of hard-coding them here?
+    @property
+    def target_coefficients(self):
+        coefficients = []
+        for state in self.target_states:
+            coefficients.extend(self.coefficients_for(state))
+        return coefficients
 
     def __init__(self, filename: str):
-        pass
+        super().__init__(filename)
+        self._target_states = None
+
+    def compute_coefficient_slices(self):
+        start = 0
+        self.coefficient_slices = {}
+        for state in self.target_states:
+            end = start + self.multiplicity[state]
+            self.coefficient_slices[state] = slice(start, end)
+            start += self.multiplicity[state]
 
     def modify_coefficients(self, coefficients: List[float]):
-        pass
+        for state in self.target_states:
+            s = self.coefficient_slices[state]
+            self.set_state_coefficients(state, coefficients[s])
 
-    def _translate_to_input_states(self, output_states: List[str]) -> List[str]:
-        input_states = []
-        for state in output_states:
-            if state in self._set_of_nuclear_states:
-                input_states.append(state)
-            elif state == "E1":
-                input_states.append("3SD1")
-            elif state == "E2":
-                input_states.append("3PF2")
-            elif state == "E3":
-                input_states.append("3D-G3")
-            elif state == "E4":
-                input_states.append("3F-H4")
-            elif state == "E5":
-                input_states.append("3G-I5")
-            else:
-                raise NotImplementedError(f"output state: {state}")
-        return input_states
+    def set_state_coefficients(self, state: str, coefficients: List[float]):
+        assert len(coefficients) == self.multiplicity[state]
+        for i, coeff in zip(self.line_numbers[state], coefficients):
+            self._lines[i] = inject_coefficient_into(self._lines[i], coeff)
 
     def write_lines(self):
-        assert self.J_start <= self.J_end
-        # TODO(ben): consider J_range property
-        with open(self._output_filename, "w") as f:
+        with open(self.filename, "w") as f:
             f.writelines(self.lines)
 
 
-def truncate_coefficient_to_max_width(coefficient: float) -> str:
-    coefficient = f"{coefficient: < .15f}"
-    return coefficient[:MAX_COEFFICIENT_WIDTH]
+COEFFICIENT_START_COLUMN = 10
+MAX_COEFFICIENT_WIDTH = 10
+
+
+def inject_coefficient_into(line: str, coeff: float):
+    coeff = format_coefficient_as_string(coeff)
+    character_list = list(line)
+    start = COEFFICIENT_START_COLUMN
+    end = start + MAX_COEFFICIENT_WIDTH
+    character_list[start:end] = list(coeff)
+    new_line = "".join(character_list)
+    return new_line
+
+
+def format_coefficient_as_string(coeff: float):
+    coeff = f"{coeff: < 10.6f}"
+    coeff = truncate_coefficient_to_max_width(coeff)
+    return coeff
+
+
+def truncate_coefficient_to_max_width(coeff: str):
+    return coeff[:MAX_COEFFICIENT_WIDTH]
 
 
 class InputWriterException(Exception):

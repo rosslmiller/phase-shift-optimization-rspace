@@ -11,31 +11,14 @@ type_1_state_pp = re.compile(r"^\s*(\d [spdfghijk] \d)\s+p-p\s*$")
 type_2_state_np = re.compile(r"^\s*(e \d)\s+$")
 type_2_state_pp = re.compile(r"^\s*(e \d)\s+p-p\s*$")
 
-# TODO(ben): Will we ever see phases such as '3 S D 1' or '3 F - H 4' in the output?
-# Answer: No, these only appear in the input.
-
-phase_shift_result = re.compile(
-    r"""
-    ^                                           # beginning of line
-    \s+(?P<elab>\d+\.\d+)                       # kinetic energy, I think...
-    \s+(?P<theoretical>-?\d\.\d+[eE][\+-]\d+)   # theoretical value
-    \s+(?P<experimental>-?\d\.\d+[eE][\+-]\d+)  # experimental value
-    \s+(?P<upper>-?\d\.\d+[eE][\+-]\d+)         # experimental upper bound
-    \s+(?P<lower>-?\d\.\d+[eE][\+-]\d+)         # experimental lower bound
-    \s(?:n93n)?                                 # optional string; unsure of meaning
-    \s+(?P<chi2>\d+\.\d+)                       # chi squared
-    $                                           # end of line
-""",
-    re.VERBOSE,
-)
 
 low_energy_params = re.compile(
     r"""
-    ^                                          # beginning of line
-    \s+(?:low\ energy\ parameters)             # literal string: low energy parameters
-    \s+a\s+=\s+(?P<a>-?\d\.\d+[eE][\+-]\d+)    # a = ...
-    \s+r\s+=\s+(?P<r>-?\d\.\d+[eE][\+-]\d+)    # r = ...
-    $                                          # end of line
+    ^                               # beginning of line
+    \s+(?:low\ energy\ parameters)  # literal string: low energy parameters
+    \s+a\s+=\s+(?P<a>-?\d+\.\d+)    # a = ...
+    \s+r\s+=\s+(?P<r>-?\d+\.\d+)    # r = ...
+    $                               # end of line
 """,
     re.VERBOSE,
 )
@@ -46,9 +29,9 @@ LowEnergyParams = namedtuple("LowEnergyParams", "a r")
 
 
 class StateResults:
-    def __init__(self, phase_shifts, low_energy_params=None):
-        self._phase_shifts = phase_shifts
-        self._low_energy_params = low_energy_params
+    @property
+    def state(self):
+        return self._state
 
     @property
     def phase_shifts(self):
@@ -58,57 +41,87 @@ class StateResults:
     def low_energy_params(self):
         return self._low_energy_params
 
+    def __init__(self, state, phase_shifts, low_energy_params=None):
+        self._state = state
+        self._phase_shifts = phase_shifts
+        self._low_energy_params = low_energy_params
+
+    def __sub__(self, other):
+        if self.state != other.state:
+            raise ValueError(
+                "cannot subtract results of two different states "
+                f"(self.state == {self.state!r}, other.state == {other.state!r})"
+            )
+
+        self_elabs, self_theoretical = zip(
+            *[(ps.elab, ps.theoretical) for ps in self.phase_shifts]
+        )
+
+        other_elabs, other_theoretical = zip(
+            *[(ps.elab, ps.theoretical) for ps in other.phase_shifts]
+        )
+
+        if self_elabs != other_elabs:
+            raise ValueError("results do not have the same energies")
+
+        return sum((x - y) ** 2 for x, y in zip(self_theoretical, other_theoretical))
+
+    def __repr__(self):
+        class_name = type(self).__name__
+
+        string_representation = (
+            f"{class_name}(\n" f"    state={self.state!r},\n" "    phase_shifts=(\n"
+        )
+
+        for ps in self.phase_shifts:
+            string_representation += f"        {ps},\n"
+        string_representation += "    ),\n"
+        string_representation += (
+            f"    low_energy_params={self.low_energy_params}\n" ")\n"
+        )
+
+        return string_representation
+
+    def __str__(self):
+        header = (
+            f'Phase Shifts for "{self.state}":\n'
+            "---------------------------------------------------\n"
+            "      elab    theoretical    experimental    chi**2\n"
+            "---------------------------------------------------\n"
+        )
+
+        body = "".join(
+            [
+                f"{ps.elab: > 10.2f}{ps.theoretical: > 15.5f}"
+                f"{ps.experimental: > 16.3f}{ps.chi2: > 10.2f}\n"
+                for ps in self.phase_shifts
+            ]
+        )
+
+        footer = "---------------------------------------------------\n"
+
+        if self.low_energy_params:
+            a = self.low_energy_params.a
+            r = self.low_energy_params.r
+            footer += (
+                "\nLow Energy Parameters:\n"
+                f"    a = {a:10.4f}\n"
+                f"    r = {r:10.4f}\n"
+            )
+        return header + body + footer
+
 
 class OutputReader:
 
-    # TODO: Rewrite this entire class, applying principles from Clean Code
-    order_of_nuclear_states = [
-        "1S0",
-        "3P0",
-        "1P1",
-        "3P1",
-        "3S1",
-        "3D1",
-        "E1",
-        "1D2",
-        "3D2",
-        "3P2",
-        "3F2",
-        "E2",
-        "1F3",
-        "3F3",
-        "3D3",
-        "3G3",
-        "E3",
-        "1G4",
-        "3G4",
-        "3F4",
-        "3H4",
-        "E4",
-        "1H5",
-        "3H5",
-        "3G5",
-        "3I5",
-        "E5",
-        "1I6",
-        "3I6",
-        "3H6",
-        "3K6",
-        "E6",
-        "1K7",
-        "3K7",
-        "3I7",
-        "E7",
-    ]
-
-    def __init__(self, filename: str):
-        self._filename = filename
-        self.count_elabs()
-        self.create_ordinals_dict()
+    # TODO(ben): Rewrite this entire class, applying principles from Clean Code
 
     @property
     def filename(self):
         return self._filename
+
+    def __init__(self, filename: str):
+        self._filename = filename
+        self.count_elabs()
 
     def get_results_from_output(self):
         with open(self.filename, "r") as f:
@@ -129,10 +142,6 @@ class OutputReader:
             return PhaseShift(
                 float(elab), float(th), float(exp), float(up), float(low), float(chi2)
             )
-
-            match = re.match(phase_shift_result, line)
-            assert match
-            return PhaseShift(**{k: float(v) for k, v in match.groupdict().items()})
 
         for line in line_iter:
 
@@ -173,7 +182,7 @@ class OutputReader:
                     )
 
                 # Store results in dictionary
-                results[state] = StateResults(phase_shifts, le_params)
+                results[state] = StateResults(state, phase_shifts, le_params)
 
         return results
 
@@ -195,11 +204,3 @@ class OutputReader:
 
     def count_elabs(self):
         self.num_elabs = len(list(self.elab_generator()))
-
-    def create_ordinals_dict(self):
-        self._ordinal_for_nuclear_state = {
-            s: i for i, s in enumerate(self.order_of_nuclear_states)
-        }
-
-    def ordinal_for_nuclear_state(self, state: str):
-        return self._ordinal_for_nuclear_state[state]
