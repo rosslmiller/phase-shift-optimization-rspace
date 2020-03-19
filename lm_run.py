@@ -14,9 +14,6 @@ from filenames import (
 from literature_values import _1S0, _3S1
 
 
-TARGET_STATES = ["1S0"]
-
-
 def main():
     input_writer = InputWriter(PHASE_SHIFT_INPUT_FILE)
 
@@ -24,10 +21,11 @@ def main():
 
     output_reader = OutputReader(PHASE_SHIFT_OUTPUT_FILE)
     results = output_reader.get_results_from_output()
-    input_writer.target_states = TARGET_STATES
+    input_writer.determine_target_states_from(results)
 
     states_to_check = list(results)
     print(f"Checking states: {states_to_check!r}")
+    print(f"Optimizing coefficients for {list(input_writer.target_states)!r}")
 
     target_function = functools.partial(
         compute_phase_shifts,
@@ -43,7 +41,7 @@ def main():
         x0=initial_coefficients,
         ftol=1e-11,  # max relative error of squares sum
         xtol=1e-13,  # max rel error in approximate solution
-        epsfcn=1e-10,  # parameter step size for Jacobian approximation.
+        epsfcn=1e-3,  # parameter step size for Jacobian approximation.
         # must be >> 1e-sigfig = (rounding threshold) for plugging
         # data into input file.
         maxfev=10000,  # max number of function evaluations
