@@ -14,12 +14,7 @@ from filenames import (
 from literature_values import _1S0, _3S1
 
 
-TARGET_STATES = [
-    "1S0",
-    # "1P1",
-    # "3S1",
-    # "3PJ",  # 3P0, 3P1, 3P2
-]
+TARGET_STATES = ["1S0"]
 
 
 def main():
@@ -48,8 +43,8 @@ def main():
         x0=initial_coefficients,
         ftol=1e-11,  # max relative error of squares sum
         xtol=1e-13,  # max rel error in approximate solution
-        epsfcn=1e-10,  # parameter step size for jacobian approximation.
-        # must be >> 1e-sigfig = (rounding treshold) for plugging
+        epsfcn=1e-10,  # parameter step size for Jacobian approximation.
+        # must be >> 1e-sigfig = (rounding threshold) for plugging
         # data into input file.
         maxfev=10000,  # max number of function evaluations
         factor=0.1,
