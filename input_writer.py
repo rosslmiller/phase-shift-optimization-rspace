@@ -1,10 +1,26 @@
-from typing import List
+from typing import List, Tuple
 
 # Local imports
 from input_reader import InputReader
 
 
 class InputWriter(InputReader):
+    @InputReader.J_range.setter
+    def J_range(self, J_range: Tuple[int, int]):
+        self.modify_J_range(J_range)
+
+    @InputReader.singlet_states_enabled.setter
+    def singlet_states_enabled(self, value: int) -> bool:
+        self.modify_multiplicity_selector("singlet", value)
+
+    @InputReader.triplet_states_enabled.setter
+    def triplet_states_enabled(self, value: int) -> bool:
+        self.modify_multiplicity_selector("triplet", value)
+
+    @InputReader.coupled_states_enabled.setter
+    def coupled_states_enabled(self, value: int) -> bool:
+        self.modify_multiplicity_selector("coupled", value)
+
     @property
     def target_states(self):
         return tuple(self._target_states)
@@ -40,7 +56,35 @@ class InputWriter(InputReader):
             self.coefficient_slices[state] = slice(start, end)
             start += self.multiplicity[state]
 
+    def modify_J_range(self, J_range):
+        lower, upper = J_range
+        assert lower <= upper
+        i = self.J_range_line_index
+        # Note: `J_range_line_index` attribute is created by InputReader class
+        self._lines[i] = f"jb,je       {lower}  {upper}\n"
+
+    def modify_multiplicity_selector(self, target: str, value: int):
+        if isinstance(value, bool):
+            value = int(value)
+
+        i = self.multiplicity_selector_line_index
+        label, *rest = self._lines[i].split()
+        singlet, triplet, coupled = (int(x) for x in rest)
+
+        if target.lower() in ["singlet", "sing", "s"]:
+            singlet = value
+        elif target.lower() in ["triplet", "tr", "t"]:
+            triplet = value
+        elif target.lower() in ["coupled", "cp", "c"]:
+            coupled = value
+        else:
+            raise MultiplicityTypeNotFound(target)
+
+        self._lines[i] = f"sing,tr,cp  {singlet}  {triplet}  {coupled}\n"
+
     def modify_coefficients(self, coefficients: List[float]):
+        # TODO(ben): Consider rename to "modify_target_coefficients"
+        # and creating a target_coefficients.setter
         for state in self.target_states:
             s = self.coefficient_slices[state]
             self.set_state_coefficients(state, coefficients[s])
@@ -81,6 +125,11 @@ def truncate_coefficient_to_max_width(coeff: str):
 
 class InputWriterException(Exception):
     """Base exception for this module."""
+
+
+class MultiplicityTypeNotFound(InputWriterException):
+    """When attempting the read the multiplicity selector, an unknown
+    target string was supplied."""
 
 
 class TargetStatesNotSet(InputWriterException):
