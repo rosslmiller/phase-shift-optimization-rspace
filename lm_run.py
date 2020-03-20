@@ -14,6 +14,9 @@ from filenames import (
 from literature_values import _1S0, _3S1
 
 
+TARGET_STATES = None
+
+
 def main():
     input_writer = InputWriter(PHASE_SHIFT_INPUT_FILE)
 
@@ -21,7 +24,11 @@ def main():
 
     output_reader = OutputReader(PHASE_SHIFT_OUTPUT_FILE)
     results = output_reader.get_results_from_output()
-    input_writer.determine_target_states_from(results)
+
+    if TARGET_STATES:
+        input_writer.target_states = TARGET_STATES
+    else:
+        input_writer.determine_target_states_from(results)
 
     states_to_check = list(results)
     print(f"Checking states: {states_to_check!r}")
