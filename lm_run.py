@@ -14,7 +14,7 @@ from filenames import (
 from literature_values import _1S0, _3S1
 
 
-TARGET_STATES = ["1S0"]
+TARGET_STATES = None
 
 
 def main():
@@ -24,10 +24,15 @@ def main():
 
     output_reader = OutputReader(PHASE_SHIFT_OUTPUT_FILE)
     results = output_reader.get_results_from_output()
-    input_writer.target_states = TARGET_STATES
+
+    if TARGET_STATES:
+        input_writer.target_states = TARGET_STATES
+    else:
+        input_writer.determine_target_states_from(results)
 
     states_to_check = list(results)
     print(f"Checking states: {states_to_check!r}")
+    print(f"Optimizing coefficients for {list(input_writer.target_states)!r}")
 
     target_function = functools.partial(
         compute_phase_shifts,
@@ -43,7 +48,7 @@ def main():
         x0=initial_coefficients,
         ftol=1e-11,  # max relative error of squares sum
         xtol=1e-13,  # max rel error in approximate solution
-        epsfcn=1e-10,  # parameter step size for Jacobian approximation.
+        epsfcn=1e-3,  # parameter step size for Jacobian approximation.
         # must be >> 1e-sigfig = (rounding threshold) for plugging
         # data into input file.
         maxfev=10000,  # max number of function evaluations
@@ -79,13 +84,34 @@ def compute_phase_shifts(coefficients, input_writer, output_reader, states_to_ch
         if ps.upper != ps.experimental
     ]
 
-    # TODO: Add if's for 1S0 case: add computation for a and r values, np vs pp cases
-    # TODO: Add ifs for 3S1, 3D1 case: add computation for a_t, r_t, B_D, P_d values
-
     chi2 = sum(x ** 2 for x in chi)
-    print(f"Sum chi**2 = {chi2:0.4f}")
+    print(f"Sum chi**2 = {chi2: > 15.4f}")
+
+    append_additional_chi_for_low_energy_parameters(chi, results)
+    additional_chi2 = sum(x ** 2 for x in chi) - chi2
+    if additional_chi2:
+        print(f"LEP chi**2 = {additional_chi2: > 15.4f}")
+
     print(f"    {coefficients}")
     return chi
+
+
+def append_additional_chi_for_low_energy_parameters(chi, results):
+    if "1S0" in results:
+        # TODO(ben): detect if we're testing np or pp.
+        chi.extend([
+            (results["1S0"].low_energy_params.a - _1S0["a_np"]) / _1S0["da_np"],
+            (results["1S0"].low_energy_params.r - _1S0["r_np"]) / _1S0["dr_np"],
+        ])
+    
+    if "3S1" in results:
+        # TODO(ben): add computation for B_D, P_d values
+        chi.extend([
+            (results["3S1"].low_energy_params.a - _3S1["a_t"]) / _3S1["da_t"],
+            (results["3S1"].low_energy_params.r - _3S1["r_t"]) / _3S1["dr_t"],
+        ])
+
+    # TODO(ben): Do we need 3D1 case?
 
 
 def format_and_print(initial_coefficients, least_squares_output):
