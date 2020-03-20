@@ -14,8 +14,8 @@ from filenames import (
 from literature_values import _1S0, _3S1
 
 
-TARGET_STATES = ["3PJ"]
-STATES_TO_CHECK = ["3P0", "3P1", "3P2"]
+TARGET_STATES = ["1S0"]
+STATES_TO_CHECK = ["1S0"]
 
 
 def main():
