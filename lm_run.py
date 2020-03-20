@@ -14,7 +14,8 @@ from filenames import (
 from literature_values import _1S0, _3S1
 
 
-TARGET_STATES = None
+TARGET_STATES = ["3PJ"]
+STATES_TO_CHECK = ["3P0", "3P1", "3P2"]
 
 
 def main():
@@ -30,7 +31,12 @@ def main():
     else:
         input_writer.determine_target_states_from(results)
 
-    states_to_check = list(results)
+    if STATES_TO_CHECK:
+        states_to_check = STATES_TO_CHECK
+    else:
+        # Default is to check against all states in the output
+        states_to_check = list(results)
+
     print(f"Checking states: {states_to_check!r}")
     print(f"Optimizing coefficients for {list(input_writer.target_states)!r}")
 
@@ -60,7 +66,7 @@ def main():
 
     # Fetch results after optimization
     results = output_reader.get_results_from_output()
-    show_error_in_a_and_r(results)
+    show_error_in_a_and_r(states_to_check, results)
 
     return initial_coefficients, least_squares_output
 
@@ -87,7 +93,7 @@ def compute_phase_shifts(coefficients, input_writer, output_reader, states_to_ch
     chi2 = sum(x ** 2 for x in chi)
     print(f"Sum chi**2 = {chi2: > 15.4f}")
 
-    append_additional_chi_for_low_energy_parameters(chi, results)
+    append_additional_chi_for_low_energy_parameters(chi, states_to_check, results)
     additional_chi2 = sum(x ** 2 for x in chi) - chi2
     if additional_chi2:
         print(f"LEP chi**2 = {additional_chi2: > 15.4f}")
@@ -96,15 +102,15 @@ def compute_phase_shifts(coefficients, input_writer, output_reader, states_to_ch
     return chi
 
 
-def append_additional_chi_for_low_energy_parameters(chi, results):
-    if "1S0" in results:
+def append_additional_chi_for_low_energy_parameters(chi, states_to_check, results):
+    if "1S0" in states_to_check:
         # TODO(ben): detect if we're testing np or pp.
         chi.extend([
             (results["1S0"].low_energy_params.a - _1S0["a_np"]) / _1S0["da_np"],
             (results["1S0"].low_energy_params.r - _1S0["r_np"]) / _1S0["dr_np"],
         ])
     
-    if "3S1" in results:
+    if "3S1" in states_to_check:
         # TODO(ben): add computation for B_D, P_d values
         chi.extend([
             (results["3S1"].low_energy_params.a - _3S1["a_t"]) / _3S1["da_t"],
@@ -122,9 +128,9 @@ def format_and_print(initial_coefficients, least_squares_output):
     print(f"Final parameters:   {final_coefficients.tolist()!r}")
 
 
-def show_error_in_a_and_r(results):
+def show_error_in_a_and_r(states_to_check, results):
     # TODO: Add Deuteron calculations to script
-    if "1S0" in results:
+    if "1S0" in states_to_check:
         at = results["1S0"].low_energy_params.a
         da = results["1S0"].low_energy_params.a - _1S0["a_np"]
         rt = results["1S0"].low_energy_params.r
@@ -132,7 +138,7 @@ def show_error_in_a_and_r(results):
         print("\nFor 1S0:")
         print(f"a is calculated to be {at}; difference from experiment is: {da}")
         print(f"r is calculated to be {rt}; difference from experiment is: {dr}")
-    if "3S1" in results:
+    if "3S1" in states_to_check:
         at = results["3S1"].low_energy_params.a
         da = results["3S1"].low_energy_params.a - _3S1["a_t"]
         rt = results["3S1"].low_energy_params.r
