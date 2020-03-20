@@ -32,6 +32,7 @@ def main():
 
     states_to_check = list(results)
     print(f"Checking states: {states_to_check!r}")
+    print(f"Optimizing coefficients for {list(input_writer.target_states)!r}")
 
     target_function = functools.partial(
         compute_phase_shifts,
@@ -47,7 +48,7 @@ def main():
         x0=initial_coefficients,
         ftol=1e-11,  # max relative error of squares sum
         xtol=1e-13,  # max rel error in approximate solution
-        epsfcn=1e-10,  # parameter step size for Jacobian approximation.
+        epsfcn=1e-3,  # parameter step size for Jacobian approximation.
         # must be >> 1e-sigfig = (rounding threshold) for plugging
         # data into input file.
         maxfev=10000,  # max number of function evaluations
