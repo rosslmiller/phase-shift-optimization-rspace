@@ -48,6 +48,15 @@ class InputWriter(InputReader):
 
     def set_state_coefficients(self, state: str, coefficients: List[float]):
         assert len(coefficients) == self.multiplicity[state]
+
+        # Sanjoy wants the first 1P1 coefficient to remain fixed
+        if state.upper() == "1P1":
+            for i, coeff in zip(self.line_numbers[state], coefficients):
+                if i == 0:
+                    continue
+                self._lines[i] = inject_coefficient_into(self._lines[i], coeff)
+            return
+
         for i, coeff in zip(self.line_numbers[state], coefficients):
             self._lines[i] = inject_coefficient_into(self._lines[i], coeff)
 
