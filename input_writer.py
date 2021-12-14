@@ -51,14 +51,14 @@ class InputWriter(InputReader):
 
         # Sanjoy wants the first 1P1 coefficient to remain fixed
         if state.upper() == "1P1":
-            for i, coeff in zip(self.line_numbers[state], coefficients):
+            for i, (n, coeff) in enumerate(zip(self.line_numbers[state], coefficients)):
                 if i == 0:
                     continue
-                self._lines[i] = inject_coefficient_into(self._lines[i], coeff)
+                self._lines[n] = inject_coefficient_into(self._lines[n], coeff)
             return
 
-        for i, coeff in zip(self.line_numbers[state], coefficients):
-            self._lines[i] = inject_coefficient_into(self._lines[i], coeff)
+        for n, coeff in zip(self.line_numbers[state], coefficients):
+            self._lines[n] = inject_coefficient_into(self._lines[n], coeff)
 
     def determine_target_states_from(self, results: StateResults):
         # The following dependencies were shown to exist by direct computation.
